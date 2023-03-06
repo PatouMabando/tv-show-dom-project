@@ -6,38 +6,80 @@ function setup() {
         .addEventListener("input", makePageForMatchingEpisodes);
 
     //we cache the episode list locally for further filtering
-    allEpisodes = getAllEpisodes();
-    makePageForEpisodes(allEpisodes);
+    // allEpisodes = getAllEpisodes();
+    // makePageForEpisodes(allEpisodes);
+    fetch("https://api.tvmaze.com/shows")
+      .then(resp => resp.json())
+      .then(handleShowsJSONResponse);
 }
 
-//level-200
-function makePageForMatchingEpisodes(event) {
-  const query = document.getElementById("searchInput").value;
-  const filtered = allEpisodes.filter(episode =>
-      episodeMatchesQuery(episode, query)
-  );
-  makePageForEpisodes(filtered);
+function sortShowsByName(allShows) {
+  // All shows names.
+  allShows.sort((a, b) => a.name.localeCompare(b.name));
+}
+
+function handleShowsJSONResponse(json) {
+  const allShows = json;
+  sortShowsByName(allShows);
+  makeShowSelector(allShows);
+  fetchEpisodesForShow(allShows[0].id);
+}
+
+function fetchEpisodesForShow(showId) {
+  fetch(`https://api.tvmaze.com/shows/${showId}/episodes`)
+      .then(resp => resp.json())
+      .then(handleEpisodesJSONResponse);
+}
+
+function handleEpisodesJSONResponse(json) {
+  //Hiding the list of episode list locally for further filtering
+  allEpisodes = json;
+  makePageForEpisodes(allEpisodes);
 }
 
 
+const filtered = allEpisodes.filter(episode =>
+  episodeMatchesQuery(episode, query)
+);
+makePageForEpisodes(filtered);
 
-//level-300
+
 function contains(inspectStr, targetStr) {
-  return -1!==inspectStr.tolowercase().indexof(targetStr.tolowercase());
+return -1 !== inspectStr.toLowerCase().indexOf(targetStr.toLowerCase());
 }
-
 function episodeMatchesQuery(episode, query) {
-  return contains(episode.name, query) || contains(episode.summary, query);
+return contains(episode.name, query) || contains(episode.summary, query);
 }
-
 
 function handleChosenEpisode(event) {
+let opts = event.target.selectedOptions;
+if (opts.length !== 1) {
+  return;
+}
+let id = opts[0].value;
+document.location.assign(`#${id}`);
+}
+
+function handleChosenShow(event) {
   let opts = event.target.selectedOptions;
   if (opts.length !== 1) {
       return;
   }
   let id = opts[0].value;
-  document.location.assign(`#${id}`);
+  fetchEpisodesForShow(Number(id));
+}
+
+function makeShowSelector(shows) {
+  const selectElem = document.getElementById("showSelect");
+  selectElem.textContent = ""; //empty it
+  selectElem.onchange = handleChosenShow;
+  shows.forEach(show => {
+      //e.g. <option value="82">Game Of Thrones</option>;
+      const optionElem = document.createElement("option");
+      optionElem.setAttribute("value", show.id);
+      optionElem.textContent = show.name;
+      selectElem.appendChild(optionElem);
+  });
 }
 
 function makeEpisodeSelector(episodes) {
@@ -53,7 +95,6 @@ function makeEpisodeSelector(episodes) {
       selectElem.appendChild(optionElem);
   });
 }
-
 
 function pad(num) {
   return num.toString().padStart(2, "0");
@@ -76,6 +117,11 @@ function makePageForEpisodes(json) {
       const card = makeCardForEpisode(episode);
       container.appendChild(card);
   });
+}
+
+function scrollToTop() {
+  document.body.scrollTop = 0;
+  document.documentElement.scrollTop = 0;
 }
 
 function makeCardForEpisode(episode) {
